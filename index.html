@@ -167,6 +167,17 @@
                     <label><input type="checkbox" id="doorIgnoreArea"> Ignore Door Area</label>
                 </div>
                 <div class="form-row">
+                    <span class="form-label">Strip</span>
+                    <input type="checkbox" id="doorStrip">
+                    <span class="form-label" style="margin-left: 20px;">Door Strip</span>
+                    <select id="doorStripType" class="form-select" style="width: 120px;">
+                        <option value="Option 1">Option 1</option>
+                        <option value="Option 2">Option 2</option>
+                        <option value="Option 3">Option 3</option>
+                        <option value="Option 4" selected>Option 4</option>
+                    </select>
+                </div>
+                <div class="form-row">
                     <span class="form-label">Transition</span>
                     <input type="text" id="doorTransition" class="form-input" placeholder="Select Product" style="width: 150px;">
                 </div>
@@ -221,7 +232,9 @@
                     openOut: false,
                     ignoreArea: false,
                     transition: '',
-                    showWindow: true
+                    showWindow: true,
+                    strip: false,
+                    stripType: 'Option 4'
                 };
 
                 this.init();
@@ -377,6 +390,8 @@
                 document.getElementById('doorIgnoreArea').checked = this.doorConfig.ignoreArea;
                 document.getElementById('doorTransition').value = this.doorConfig.transition;
                 document.getElementById('showDoorWindow').checked = this.doorConfig.showWindow;
+                document.getElementById('doorStrip').checked = this.doorConfig.strip;
+                document.getElementById('doorStripType').value = this.doorConfig.stripType;
             }
 
             onMouseDown(e) {
@@ -1386,6 +1401,8 @@
             document.getElementById('doorIgnoreArea').checked = false;
             document.getElementById('doorTransition').value = '';
             document.getElementById('showDoorWindow').checked = true;
+            document.getElementById('doorStrip').checked = false;
+            document.getElementById('doorStripType').value = 'Option 4';
         }
 
         function closeDoorModal() {
@@ -1408,7 +1425,9 @@
                     openOut: document.getElementById('doorOpenOut').checked,
                     ignoreArea: document.getElementById('doorIgnoreArea').checked,
                     transition: document.getElementById('doorTransition').value,
-                    showWindow: document.getElementById('showDoorWindow').checked
+                    showWindow: document.getElementById('showDoorWindow').checked,
+                    strip: document.getElementById('doorStrip').checked,
+                    stripType: document.getElementById('doorStripType').value
                 };
                 closeDoorModal();
             }
