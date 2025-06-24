@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Floor Plan Creator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .canvas-container { border: 1px solid #ccc; margin-bottom: 20px; position: relative; background: #fafafa; overflow: auto; } /* Added overflow: auto */
+        #floorPlan { background-color: white; cursor: crosshair; display: block; }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .tool-group { border: 1px solid #ddd; padding: 10px; border-radius: 4px; background-color: #f9f9f9; }
+        button { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; background: #e0e0e0; transition: all 0.2s; }
+        button:hover { background: #d0d0d0; }
+        button.active { box-shadow: 0 0 5px rgba(0,0,0,0.3); background-color: #4CAF50; color: white; }
+        button.secondary { background-color: #2196F3; color: white; }
+        button.danger { background-color: #f44336; color: white; }
+        .measurements { margin-top: 20px; padding: 15px; border-radius: 4px; background-color: #f9f9f9; border: 1px solid #ddd; }
+        .scale-info { position: absolute; bottom: 10px; right: 10px; background-color: rgba(255,255,255,0.9); padding: 5px 8px; border-radius: 4px; font-size: 11px; color: #666; }
+        .snap-indicator { position: absolute; width: 12px; height: 12px; background: #e74c3c; border: 2px solid white; border-radius: 50%; pointer-events: none; z-index: 1000; transform: translate(-50%, -50%); box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: none; }
+        .vinyl-controls { background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 20px 0; border: 1px solid #2196F3; }
+        .vinyl-results { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+        .vinyl-option { background: white; padding: 15px; border-radius: 4px; border: 2px solid #ddd; }
+        .vinyl-option.optimal { border-color: #4CAF50; background: #f1f8e9; }
+        .roll-layout { background: #f8f9fa; padding: 20px; border-radius: 4px; margin: 20px 0; border: 1px solid #dee2e6; }
+        .polygons-list { background: #fff3cd; padding: 15px; border-radius: 4px; margin: 20px 0; border: 1px solid #ffeaa7; }
+        .polygon-item { background: white; padding: 10px; margin: 5px 0; border-radius: 4px; border: 1px solid #ddd; }
+        #rollVisualizationCanvas { background: #fff; border: 1px solid #333; display: block; margin: 20px auto; }
+        
+        /* Door Modal Styles */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #f0f0f0; margin: 15% auto; padding: 0; border: 2px solid #333; width: 400px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11px; }
+        .modal-header { background: linear-gradient(to bottom, #ffffff, #e0e0e0); padding: 8px; border-bottom: 1px solid #999; display: flex; align-items: center; }
+        .modal-icon { margin-right: 5px; font-size: 16px; }
+        .modal-title { font-weight: bold; flex: 1; }
+        .close { font-size: 20px; font-weight: bold; cursor: pointer; color: #666; }
+        .close:hover { color: #000; }
+        .modal-body { padding: 15px; }
+        .form-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
+        .form-label { min-width: 60px; }
+        .form-input, .form-select { padding: 3px; border: 1px solid #999; font-size: 11px; }
+        .form-input { width: 80px; }
+        .form-select { width: 100px; }
+        .checkbox-row { display: flex; gap: 15px; margin-bottom: 8px; }
+        .modal-footer { padding: 10px; text-align: center; }
+        .ok-button { background: #0078d4; color: white; padding: 8px 20px; border: none; cursor: pointer; }
+        .ok-button:hover { background: #106ebe; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Enhanced Floor Plan Creator</h1>
+            <div>
+                <button id="saveBtn" class="secondary">Save Plan</button>
+                <button id="loadBtn" class="secondary">Load Plan</button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="tool-group">
+                <strong>Drawing Tools:</strong>
+                <button id="wallBtn" class="active">Wall (W)</button>
+                <button id="doorBtn">Door (D)</button>
+                <button id="windowBtn">Window (I)</button>
+                <button id="selectBtn">Select (S)</button>
+            </div>
+            <div class="tool-group">
+                <strong>Actions:</strong>
+                <button id="deleteBtn" class="danger">Delete (Del)</button>
+                <button id="clearBtn" class="danger">Clear All (C)</button>
+            </div>
+            <div class="tool-group">
+                <strong>Grid & Snap:</strong>
+                <label>Grid Size (px/m): <input type="number" id="gridSize" min="10" max="200" value="100" style="width: 60px"></label>
+                <button id="toggleGridBtn" class="secondary">Toggle Grid (G)</button>
+            </div>
+        </div>
+
+        <div class="vinyl-controls">
+            <h3>Vinyl Calculation Settings</h3>
+            <div style="display: flex; gap: 20px; align-items: center;">
+                <label>Vinyl Width: <input type="number" id="vinylWidth" value="2.0" step="0.1" min="0.5" style="width: 80px"> meters</label>
+                <button id="calculateVinylBtn" class="secondary">Calculate Vinyl</button>
+                <button id="showHorizontalBtn">Show Horizontal Cuts</button>
+                <button id="showVerticalBtn">Show Vertical Cuts</button>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="floorPlan" width="1000" height="600"></canvas>
+            <div class="scale-info">Scale: <span id="scaleText">100px = 1 metre</span> | Wall thickness: 70mm</div>
+            <div class="snap-indicator" id="snapIndicator"></div>
+        </div>
+
+        <div class="polygons-list" id="polygonsList" style="display: none;">
+            <h3>Floor Polygons</h3>
+            <div id="polygonItems"></div>
+        </div>
+
+        <div class="measurements">
+            <h3>Floor Measurements</h3>
+            <div>Total Area: <span id="totalArea">0.00 m²</span></div>
+            <div>Perimeter: <span id="perimeter">0.00 m</span></div>
+            <div>Wall Count: <span id="wallCount">0</span></div>
+            <div>Polygon Count: <span id="polygonCount">0</span></div>
+        </div>
+
+        <div class="vinyl-results" id="vinylResults" style="display: none;">
+            <div class="vinyl-option" id="horizontalOption">
+                <h4>🔄 Horizontal Layout</h4>
+                <div id="horizontalDetails"></div>
+            </div>
+            <div class="vinyl-option" id="verticalOption">
+                <h4>↕️ Vertical Layout</h4>
+                <div id="verticalDetails"></div>
+            </div>
+        </div>
+
+        <div class="roll-layout" id="rollLayout" style="display: none;">
+            <h3>25 Meter Roll Layout Visualization</h3>
+            <p>Showing exact cuts and measurements for vinyl rolls. Scroll canvas if needed.</p>
+            <div class="canvas-container"> <canvas id="rollVisualizationCanvas"></canvas>
+            </div>
+            <div id="rollSummaryContainer"></div>
+        </div>
+    </div>
+
+    <!-- Door Configuration Modal -->
+    <div id="doorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-icon">🚪</span>
+                <span class="modal-title">Door</span>
+                <span class="close" onclick="closeDoorModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <span class="form-label">Name</span>
+                    <input type="text" id="doorName" class="form-input" style="width: 120px;">
+                    <span class="form-label" style="margin-left: 20px;">Style</span>
+                    <select id="doorStyle" class="form-select" style="width: 120px;">
+                        <option value="Common">Common</option>
+                        <option value="NoLeaf">NoLeaf</option>
+                        <option value="French">French</option>
+                        <option value="Sliding">Sliding</option>
+                        <option value="Folding">Folding</option>
+                        <option value="DoubleFolding">DoubleFolding</option>
+                        <option value="Pocket">Pocket</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <span class="form-label">Width</span>
+                    <input type="number" id="doorWidth" class="form-input" value="0.90" step="0.01">
+                    <span style="margin-left: 3px;">M</span>
+                    <span class="form-label" style="margin-left: 20px;">Height</span>
+                    <input type="number" id="doorHeight" class="form-input" value="2.10" step="0.01">
+                    <span style="margin-left: 3px;">M</span>
+                </div>
+                <div class="checkbox-row">
+                    <label><input type="checkbox" id="doorOpenIn" checked> Open In</label>
+                    <label><input type="checkbox" id="doorOpenOut"> Open Out</label>
+                </div>
+                <div class="checkbox-row">
+                    <label><input type="checkbox" id="doorIgnoreArea"> Ignore Door Area</label>
+                </div>
+                <div class="form-row">
+                    <span class="form-label">Transition</span>
+                    <input type="text" id="doorTransition" class="form-input" placeholder="Select Product" style="width: 150px;">
+                </div>
+                <div class="checkbox-row">
+                    <label><input type="checkbox" id="showDoorWindow" checked> Show this window while adding doors</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="confirmDoorSettings()" class="ok-button">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class EnhancedFloorPlanner {
+            constructor() {
+                this.canvas = document.getElementById('floorPlan');
+                this.ctx = this.canvas.getContext('2d');
+                this.snapIndicator = document.getElementById('snapIndicator');
+                this.rollVisualizationCanvas = document.getElementById('rollVisualizationCanvas');
+                this.rollVisualizationCtx = this.rollVisualizationCanvas.getContext('2d');
+
+                this.currentTool = 'wall';
+                this.isDrawing = false;
+                this.startPoint = null;
+                this.endPoint = null;
+                this.objects = []; // Walls, doors, windows
+                this.polygons = []; // Closed floor areas
+                this.selectedObject = null;
+
+                this.vinylLayouts = { horizontal: null, vertical: null };
+                this.currentVinylView = null; // 'horizontal' or 'vertical' for main canvas overlay
+                this.currentRollLayoutView = null; // 'horizontal' or 'vertical' for dedicated roll canvas
+
+                this.snapPoints = [];
+                this.currentSnapPoint = null;
+
+                this.gridSize = 100; // Pixels per meter on the main canvas
+                this.showGrid = true;
+                this.snapDistance = 8; // Increased snap distance for easier use
+                this.wallThickness = 0.07; // meters
+                this.vinylWidth = 2.0; // meters
+                this.vinylRollLength = 25.0; // meters
+
+                // Door configuration
+                this.doorConfig = {
+                    name: '',
+                    style: 'Common',
+                    width: 0.90,
+                    height: 2.10,
+                    openIn: true,
+                    openOut: false,
+                    ignoreArea: false,
+                    transition: '',
+                    showWindow: true
+                };
+
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.updateScaleInfo();
+                this.updateSnapPoints();
+                this.draw();
+                this.updateMeasurements();
+                document.getElementById('wallBtn').classList.add('active');
+            }
+
+            // Constants for Cohen-Sutherland line clipping
+            static INSIDE = 0; // 0000
+            static LEFT = 1;   // 0001
+            static RIGHT = 2;  // 0010
+            static BOTTOM = 4; // 0100
+            static TOP = 8;    // 1000
+
+            // Compute region code for a point (x, y) relative to rectangle (xmin, ymin, xmax, ymax)
+            _getRegionCode(x, y, xmin, ymin, xmax, ymax) {
+                let code = EnhancedFloorPlanner.INSIDE;
+                if (x < xmin) code |= EnhancedFloorPlanner.LEFT;
+                else if (x > xmax) code |= EnhancedFloorPlanner.RIGHT;
+                if (y < ymin) code |= EnhancedFloorPlanner.BOTTOM;
+                else if (y > ymax) code |= EnhancedFloorPlanner.TOP;
+                return code;
+            }
+
+            // Cohen-Sutherland line clipping algorithm
+            // Clips a line segment (p1, p2) against a rectangle (xmin, ymin, xmax, ymax)
+            // Points p1, p2 are {x, y}
+            // Returns { p1_clip, p2_clip } or null if the segment is entirely outside
+            clipLineSegmentWithRect(p1, p2, rect) {
+                const { x: xmin, y: ymin, width, height } = rect;
+                const xmax = xmin + width;
+                const ymax = ymin + height;
+
+                let x1 = p1.x, y1 = p1.y;
+                let x2 = p2.x, y2 = p2.y;
+
+                let code1 = this._getRegionCode(x1, y1, xmin, ymin, xmax, ymax);
+                let code2 = this._getRegionCode(x2, y2, xmin, ymin, xmax, ymax);
+
+                let accept = false;
+
+                while (true) {
+                    if ((code1 === 0) && (code2 === 0)) { // Both endpoints inside
+                        accept = true;
+                        break;
+                    } else if ((code1 & code2) !== 0) { // Both endpoints outside and in the same region
+                        break;
+                    } else { // Segment crosses a boundary
+                        let x, y;
+                        const outcode = code1 !== 0 ? code1 : code2;
+
+                        if (outcode & EnhancedFloorPlanner.TOP) {
+                            x = x1 + (x2 - x1) * (ymax - y1) / (y2 - y1);
+                            y = ymax;
+                        } else if (outcode & EnhancedFloorPlanner.BOTTOM) {
+                            x = x1 + (x2 - x1) * (ymin - y1) / (y2 - y1);
+                            y = ymin;
+                        } else if (outcode & EnhancedFloorPlanner.RIGHT) {
+                            y = y1 + (y2 - y1) * (xmax - x1) / (x2 - x1);
+                            x = xmax;
+                        } else if (outcode & EnhancedFloorPlanner.LEFT) {
+                            y = y1 + (y2 - y1) * (xmin - x1) / (x2 - x1);
+                            x = xmin;
+                        }
+
+                        if (outcode === code1) {
+                            x1 = x; y1 = y;
+                            code1 = this._getRegionCode(x1, y1, xmin, ymin, xmax, ymax);
+                        } else {
+                            x2 = x; y2 = y;
+                            code2 = this._getRegionCode(x2, y2, xmin, ymin, xmax, ymax);
+                        }
+                    }
+                }
+
+                if (accept) {
+                    return { p1_clip: { x: x1, y: y1 }, p2_clip: { x: x2, y: y2 } };
+                }
+                return null;
+            }
+
+            setupEventListeners() {
+                this.canvas.addEventListener('mousedown', this.onMouseDown.bind(this));
+                this.canvas.addEventListener('mousemove', this.onMouseMove.bind(this));
+                this.canvas.addEventListener('mouseup', this.onMouseUp.bind(this));
+                this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+                document.getElementById('wallBtn').addEventListener('click', () => this.setTool('wall'));
+                document.getElementById('doorBtn').addEventListener('click', () => {
+                    console.log('Door button clicked, calling global function');
+                    showDoorModalDirect();
+                });
+                document.getElementById('windowBtn').addEventListener('click', () => this.setTool('window'));
+                document.getElementById('selectBtn').addEventListener('click', () => this.setTool('select'));
+
+                document.getElementById('deleteBtn').addEventListener('click', this.deleteSelected.bind(this));
+                document.getElementById('clearBtn').addEventListener('click', this.clearAll.bind(this));
+                document.getElementById('toggleGridBtn').addEventListener('click', this.toggleGrid.bind(this));
+
+                document.getElementById('calculateVinylBtn').addEventListener('click', this.calculateVinyl.bind(this));
+                document.getElementById('showHorizontalBtn').addEventListener('click', () => this.visualizeRollLayout('horizontal'));
+                document.getElementById('showVerticalBtn').addEventListener('click', () => this.visualizeRollLayout('vertical'));
+
+                document.getElementById('gridSize').addEventListener('change', this.updateGridSize.bind(this));
+                document.getElementById('vinylWidth').addEventListener('change', this.updateVinylWidth.bind(this));
+
+                document.addEventListener('keydown', this.onKeyDown.bind(this));
+
+                document.getElementById('saveBtn').addEventListener('click', this.save.bind(this));
+                document.getElementById('loadBtn').addEventListener('click', this.load.bind(this));
+            }
+
+            setTool(tool) {
+                console.log('setTool called with:', tool);
+                document.querySelectorAll('.toolbar .tool-group button').forEach(btn => btn.classList.remove('active'));
+                const toolMap = { 'wall': 'wallBtn', 'door': 'doorBtn', 'window': 'windowBtn', 'select': 'selectBtn' };
+                if (toolMap[tool]) document.getElementById(toolMap[tool]).classList.add('active');
+                this.currentTool = tool;
+                this.selectedObject = null;
+                
+                this.draw();
+            }
+
+            showDoorModal() {
+                console.log('showDoorModal called');
+                const modal = document.getElementById('doorModal');
+                console.log('Modal element:', modal);
+                modal.style.display = 'block';
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100%';
+                modal.style.height = '100%';
+                modal.style.zIndex = '9999';
+                modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                
+                console.log('Modal display set to block');
+                
+                // Set current values in the modal
+                document.getElementById('doorName').value = this.doorConfig.name;
+                document.getElementById('doorStyle').value = this.doorConfig.style;
+                document.getElementById('doorWidth').value = this.doorConfig.width;
+                document.getElementById('doorHeight').value = this.doorConfig.height;
+                document.getElementById('doorOpenIn').checked = this.doorConfig.openIn;
+                document.getElementById('doorOpenOut').checked = this.doorConfig.openOut;
+                document.getElementById('doorIgnoreArea').checked = this.doorConfig.ignoreArea;
+                document.getElementById('doorTransition').value = this.doorConfig.transition;
+                document.getElementById('showDoorWindow').checked = this.doorConfig.showWindow;
+            }
+
+            onMouseDown(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                if (this.currentTool === 'select') {
+                    this.selectObjectAt(x, y);
+                } else if (["wall", "door", "window"].includes(this.currentTool)) {
+                    this.startDrawing(x, y);
+                }
+            }
+
+            onMouseMove(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                this.checkSnapping(x, y);
+                if (this.isDrawing) this.updateDrawing(x, y);
+            }
+
+            onMouseUp(e) {
+                if (this.isDrawing) this.finishDrawing();
+            }
+
+            checkSnapping(x, y) {
+                this.currentSnapPoint = null;
+                let minDistanceSq = this.snapDistance * this.snapDistance; // Use squared distance
+                let closestPoint = null;
+
+                for (const point of this.snapPoints) {
+                    const distSq = Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2);
+                    if (distSq < minDistanceSq) {
+                        minDistanceSq = distSq;
+                        closestPoint = point;
+                    }
+                }
+
+                if (closestPoint) {
+                    this.currentSnapPoint = closestPoint;
+                    this.showSnapIndicator(closestPoint.x, closestPoint.y);
+                } else {
+                    this.hideSnapIndicator();
+                }
+            }
+
+            showSnapIndicator(canvasX, canvasY) {
+                const rect = this.canvas.getBoundingClientRect();
+                this.snapIndicator.style.left = (rect.left + window.scrollX + canvasX) + 'px';
+                this.snapIndicator.style.top = (rect.top + window.scrollY + canvasY) + 'px';
+                this.snapIndicator.style.display = 'block';
+            }
+
+            hideSnapIndicator() {
+                this.snapIndicator.style.display = 'none';
+            }
+
+            startDrawing(x, y) {
+                this.startPoint = this.currentSnapPoint ? { ...this.currentSnapPoint } : this.snapToGrid({ x, y });
+                this.endPoint = { ...this.startPoint };
+                this.isDrawing = true;
+            }
+
+            updateDrawing(x, y) {
+                if (!this.isDrawing) return;
+                this.endPoint = this.currentSnapPoint ? { ...this.currentSnapPoint } : { x, y };
+                this.draw();
+            }
+
+            finishDrawing() {
+                if (!this.isDrawing || !this.startPoint || !this.endPoint) return;
+                const distance = Math.sqrt(Math.pow(this.endPoint.x - this.startPoint.x, 2) + Math.pow(this.endPoint.y - this.startPoint.y, 2));
+                if (distance < 5) { // Minimum draw distance
+                    this.isDrawing = false;
+                    this.draw();
+                    return;
+                }
+
+                const newObject = {
+                    type: this.currentTool,
+                    startX: this.startPoint.x, startY: this.startPoint.y,
+                    endX: this.endPoint.x, endY: this.endPoint.y,
+                    id: Date.now() + Math.random().toString(36).substr(2, 9)
+                };
+                this.objects.push(newObject);
+
+                if (this.currentTool === 'wall') this.checkForPolygonFormation();
+
+                this.isDrawing = false;
+                this.startPoint = null; this.endPoint = null;
+                this.updateSnapPoints();
+                this.draw();
+                this.updateMeasurements();
+            }
+
+            // Basic DFS based polygon detection. Can be improved for complex cases.
+            checkForPolygonFormation() {
+                const walls = this.objects.filter(obj => obj.type === 'wall');
+                if (walls.length < 3) return;
+
+                const pointsMap = new Map(); // Map point string "x,y" to list of walls connected to it
+
+                walls.forEach(wall => {
+                    const p1Str = `${wall.startX},${wall.startY}`;
+                    const p2Str = `${wall.endX},${wall.endY}`;
+                    if (!pointsMap.has(p1Str)) pointsMap.set(p1Str, []);
+                    if (!pointsMap.has(p2Str)) pointsMap.set(p2Str, []);
+                    pointsMap.get(p1Str).push(wall);
+                    pointsMap.get(p2Str).push(wall);
+                });
+
+                const existingPolygonsPoints = new Set(this.polygons.map(p => JSON.stringify(p.points.map(pt => `${pt.x},${pt.y}`).sort())));
+
+                const findPath = (currentWall, startWall, path, visitedWalls) => {
+                    const lastPointInPath = path[path.length -1];
+                    const nextPointOfCurrentWall = (Math.abs(currentWall.startX - lastPointInPath.x) < 1 && Math.abs(currentWall.startY - lastPointInPath.y) <1 ) ?
+                                                 {x: currentWall.endX, y: currentWall.endY} : {x: currentWall.startX, y: currentWall.startY};
+
+                    path.push(nextPointOfCurrentWall);
+                    visitedWalls.add(currentWall.id);
+
+                    if (Math.abs(nextPointOfCurrentWall.x - path[0].x) < 1 && Math.abs(nextPointOfCurrentWall.y - path[0].y) <1 && path.length > 3) { // path.length > 3 means at least 3 points + closure
+                        const polygonPoints = path.slice(0, -1); // Remove duplicate closing point
+                         const sortedPointsStr = JSON.stringify(polygonPoints.map(pt => `${pt.x},${pt.y}`).sort());
+                        if (!existingPolygonsPoints.has(sortedPointsStr)) {
+                             this.polygons.push({
+                                id: Date.now() + Math.random().toString(36).substr(2, 9),
+                                points: polygonPoints,
+                                area: this.calculatePolygonArea(polygonPoints)
+                            });
+                            existingPolygonsPoints.add(sortedPointsStr);
+                        }
+                        return; // Found a polygon
+                    }
+
+                    const connectedWalls = pointsMap.get(`${nextPointOfCurrentWall.x},${nextPointOfCurrentWall.y}`) || [];
+                    for (const wall of connectedWalls) {
+                        if (!visitedWalls.has(wall.id)) {
+                            findPath(wall, startWall, [...path], new Set(visitedWalls));
+                        }
+                    }
+                };
+
+                walls.forEach(wall => {
+                     findPath(wall, wall, [{x: wall.startX, y: wall.startY}], new Set());
+                });
+
+                this.updatePolygonsList();
+                this.updateMeasurements();
+            }
+
+            selectObjectAt(x, y) {
+                this.selectedObject = null;
+                // Check polygons first
+                for (let i = this.polygons.length - 1; i >= 0; i--) {
+                    if (this.isPointInPolygon(x, y, this.polygons[i].points)) {
+                        this.selectedObject = this.polygons[i];
+                        this.draw();
+                        this.updatePolygonsList(); // To highlight in list
+                        return;
+                    }
+                }
+                // Then check other objects
+                for (let i = this.objects.length - 1; i >= 0; i--) {
+                    const obj = this.objects[i];
+                    if (this.isPointNearLine(x, y, obj.startX, obj.startY, obj.endX, obj.endY, 10)) {
+                        this.selectedObject = obj;
+                        this.draw();
+                        return;
+                    }
+                }
+                this.draw(); // Redraw if nothing selected to clear previous selection
+                this.updatePolygonsList();
+            }
+
+            isPointInPolygon(x, y, points) {
+                let inside = false;
+                for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+                    const xi = points[i].x, yi = points[i].y;
+                    const xj = points[j].x, yj = points[j].y;
+                    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                    if (intersect) inside = !inside;
+                }
+                return inside;
+            }
+
+            deleteSelected() {
+                if (!this.selectedObject) return;
+                if (this.polygons.some(p => p.id === this.selectedObject.id)) { // Check if it's a polygon
+                    this.polygons = this.polygons.filter(p => p.id !== this.selectedObject.id);
+                    this.updatePolygonsList();
+                } else {
+                    this.objects = this.objects.filter(obj => obj.id !== this.selectedObject.id);
+                }
+                this.selectedObject = null;
+                this.updateSnapPoints();
+                this.draw();
+                this.updateMeasurements();
+            }
+
+            clearAll() {
+                // Custom modal would be better, but confirm for now
+                if (true) { // Simplified: always clear without confirm for this example. Replace with modal in production.
+                    this.objects = [];
+                    this.polygons = [];
+                    this.selectedObject = null;
+                    this.vinylLayouts = { horizontal: null, vertical: null };
+                    this.currentVinylView = null;
+                    this.currentRollLayoutView = null;
+
+                    document.getElementById('polygonsList').style.display = 'none';
+                    document.getElementById('vinylResults').style.display = 'none';
+                    document.getElementById('rollLayout').style.display = 'none';
+                    this.rollVisualizationCtx.clearRect(0,0, this.rollVisualizationCanvas.width, this.rollVisualizationCanvas.height);
+
+                    this.updateSnapPoints();
+                    this.draw();
+                    this.updateMeasurements();
+                }
+            }
+
+            calculateVinyl() {
+                this.vinylWidth = parseFloat(document.getElementById('vinylWidth').value) || 2.0;
+                if (this.polygons.length === 0) {
+                    // Use a custom message box/toast in a real app
+                    console.warn('Please create at least one polygon first');
+                    return;
+                }
+                this.vinylLayouts.horizontal = this._calculateVinylForDirection('horizontal');
+                this.vinylLayouts.vertical = this._calculateVinylForDirection('vertical');
+                this.displayVinylResults();
+                // Automatically show the optimal roll layout or a default one
+                const optimal = this.getOptimalLayoutDirection();
+                if (optimal) this.visualizeRollLayout(optimal);
+            }
+
+            _calculateVinylForDirection(direction) {
+                const layouts = [];
+                this.polygons.forEach((polygon, index) => {
+                    const bounds = this.getPolygonBounds(polygon.points);
+                    const strips = this.calculateStripsForPolygon(polygon, bounds, direction);
+                    layouts.push({
+                        polygonIndex: index,
+                        polygonId: polygon.id,
+                        strips: strips,
+                        totalMaterialArea: strips.reduce((sum, strip) => sum + strip.area, 0),
+                    });
+                });
+                const totalFloorArea = this.polygons.reduce((sum, p) => sum + p.area, 0);
+                const totalMaterial = layouts.reduce((sum, layout) => sum + layout.totalMaterialArea, 0);
+                return {
+                    direction: direction,
+                    polygonLayouts: layouts,
+                    totalMaterialArea: totalMaterial,
+                    totalFloorArea: totalFloorArea,
+                    waste: totalMaterial - totalFloorArea,
+                    efficiency: totalFloorArea > 0 ? (totalFloorArea / totalMaterial) * 100 : 0
+                };
+            }
+
+            calculateStripsForPolygon(polygon, bounds, direction) {
+                const strips = [];
+                const stripWidthInPixels = this.vinylWidth * this.gridSize; // Vinyl width in pixels
+
+                if (direction === 'horizontal') {
+                    // Horizontal strips: iterate from top to bottom of polygon bounds
+                    for (let y = bounds.minY; y < bounds.maxY; y += stripWidthInPixels) {
+                        const stripRect = {
+                            x: bounds.minX,
+                            y: y,
+                            width: bounds.width,
+                            height: Math.min(stripWidthInPixels, bounds.maxY - y)
+                        };
+                        // Check if this strip actually intersects the polygon
+                        // This requires a more robust polygon-rectangle intersection or clipping.
+                        // For simplicity, we assume if any part of the polygon's bounding box is in this y-range, we take the full width.
+                        // A more accurate method would clip the polygon to this strip's rectangle.
+                        if (this.polygonIntersectsRect(polygon.points, stripRect.x, stripRect.y, stripRect.width, stripRect.height)) {
+                             strips.push({
+                                x: stripRect.x, // in pixels
+                                y: stripRect.y, // in pixels
+                                width: stripRect.width, // length of strip in pixels
+                                height: stripRect.height, // width of strip (vinyl width) in pixels
+                                area: (stripRect.width / this.gridSize) * (stripRect.height / this.gridSize), // in m²
+                                direction: 'horizontal',
+                                polygonId: polygon.id
+                            });
+                        }
+                    }
+                } else { // Vertical strips
+                    // Vertical strips: iterate from left to right of polygon bounds
+                    for (let x = bounds.minX; x < bounds.maxX; x += stripWidthInPixels) {
+                         const stripRect = {
+                            x: x,
+                            y: bounds.minY,
+                            width: Math.min(stripWidthInPixels, bounds.maxX - x), // width of strip (vinyl width) in pixels
+                            height: bounds.height // length of strip in pixels
+                        };
+                        if (this.polygonIntersectsRect(polygon.points, stripRect.x, stripRect.y, stripRect.width, stripRect.height)) {
+                            strips.push({
+                                x: stripRect.x,
+                                y: stripRect.y,
+                                width: stripRect.width,
+                                height: stripRect.height,
+                                area: (stripRect.width / this.gridSize) * (stripRect.height / this.gridSize), // in m²
+                                direction: 'vertical',
+                                polygonId: polygon.id
+                            });
+                        }
+                    }
+                }
+                return strips;
+            }
+
+            polygonIntersectsRect(polygonPoints, rectX, rectY, rectWidth, rectHeight) {
+                // Check if any polygon point is inside the rectangle
+                for (const point of polygonPoints) {
+                    if (point.x >= rectX && point.x <= rectX + rectWidth &&
+                        point.y >= rectY && point.y <= rectY + rectHeight) {
+                        return true;
+                    }
+                }
+                // Check if any rectangle corner is inside the polygon
+                const rectCorners = [
+                    {x: rectX, y: rectY}, {x: rectX + rectWidth, y: rectY},
+                    {x: rectX, y: rectY + rectHeight}, {x: rectX + rectWidth, y: rectY + rectHeight}
+                ];
+                for (const corner of rectCorners) {
+                    if (this.isPointInPolygon(corner.x, corner.y, polygonPoints)) return true;
+                }
+                // Check if any polygon edge intersects any rectangle edge
+                const rectEdges = [
+                    {p1: rectCorners[0], p2: rectCorners[1]}, {p1: rectCorners[1], p2: rectCorners[3]},
+                    {p1: rectCorners[3], p2: rectCorners[2]}, {p1: rectCorners[2], p2: rectCorners[0]}
+                ];
+                for (let i = 0; i < polygonPoints.length; i++) {
+                    const polyP1 = polygonPoints[i];
+                    const polyP2 = polygonPoints[(i + 1) % polygonPoints.length];
+                    for (const rectEdge of rectEdges) {
+                        if (this.lineIntersection(polyP1.x, polyP1.y, polyP2.x, polyP2.y, rectEdge.p1.x, rectEdge.p1.y, rectEdge.p2.x, rectEdge.p2.y)) {
+                            return true;
+                        }
+                    }
+                }
+                return false; // Fallback, might not cover all cases like containment without intersection
+            }
+
+            lineIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
+                const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+                if (den === 0) return null; // Parallel or coincident
+                const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
+                const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
+                if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+                    return { x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1) };
+                }
+                return null;
+            }
+
+            getPolygonBounds(points) {
+                if (!points || points.length === 0) return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
+                const xCoords = points.map(p => p.x);
+                const yCoords = points.map(p => p.y);
+                const minX = Math.min(...xCoords);
+                const minY = Math.min(...yCoords);
+                const maxX = Math.max(...xCoords);
+                const maxY = Math.max(...yCoords);
+                return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+            }
+
+            displayVinylResults() {
+                const resultsDiv = document.getElementById('vinylResults');
+                const hOpt = document.getElementById('horizontalOption');
+                const vOpt = document.getElementById('verticalOption');
+                const hDet = document.getElementById('horizontalDetails');
+                const vDet = document.getElementById('verticalDetails');
+
+                resultsDiv.style.display = 'grid';
+                const h = this.vinylLayouts.horizontal;
+                const v = this.vinylLayouts.vertical;
+
+                const optimal = this.getOptimalLayoutDirection();
+                hOpt.className = `vinyl-option ${optimal === 'horizontal' ? 'optimal' : ''}`;
+                vOpt.className = `vinyl-option ${optimal === 'vertical' ? 'optimal' : ''}`;
+
+                hDet.innerHTML = `
+                    <div><strong>Total Material:</strong> ${h.totalMaterialArea.toFixed(2)} m²</div>
+                    <div><strong>Floor Area:</strong> ${h.totalFloorArea.toFixed(2)} m²</div>
+                    <div><strong>Waste:</strong> ${h.waste.toFixed(2)} m² (${h.totalMaterialArea > 0 ? (h.waste / h.totalMaterialArea * 100).toFixed(1) : 0}%)</div>
+                    <div><strong>Efficiency:</strong> ${h.efficiency.toFixed(1)}%</div>
+                    <div><strong>Strips:</strong> ${h.polygonLayouts.reduce((sum, p) => sum + p.strips.length, 0)}</div>
+                    ${optimal === 'horizontal' ? '<div style="color: #4CAF50; font-weight: bold;">✓ OPTIMAL CHOICE</div>' : ''}
+                `;
+                vDet.innerHTML = `
+                    <div><strong>Total Material:</strong> ${v.totalMaterialArea.toFixed(2)} m²</div>
+                    <div><strong>Floor Area:</strong> ${v.totalFloorArea.toFixed(2)} m²</div>
+                    <div><strong>Waste:</strong> ${v.waste.toFixed(2)} m² (${v.totalMaterialArea > 0 ? (v.waste / v.totalMaterialArea * 100).toFixed(1) : 0}%)</div>
+                    <div><strong>Efficiency:</strong> ${v.efficiency.toFixed(1)}%</div>
+                    <div><strong>Strips:</strong> ${v.polygonLayouts.reduce((sum, p) => sum + p.strips.length, 0)}</div>
+                    ${optimal === 'vertical' ? '<div style="color: #4CAF50; font-weight: bold;">✓ OPTIMAL CHOICE</div>' : ''}
+                `;
+            }
+
+            getOptimalLayoutDirection() {
+                if (!this.vinylLayouts.horizontal || !this.vinylLayouts.vertical) return null;
+                return this.vinylLayouts.horizontal.waste <= this.vinylLayouts.vertical.waste ? 'horizontal' : 'vertical';
+            }
+
+            // This now triggers the dedicated roll visualization canvas
+            visualizeRollLayout(direction) {
+                if (!this.vinylLayouts[direction]) {
+                    console.warn('Please calculate vinyl first');
+                    return;
+                }
+                this.currentRollLayoutView = direction;
+                document.getElementById('rollLayout').style.display = 'block';
+                this.drawRollVisualization();
+
+                document.getElementById('showHorizontalBtn').style.background = direction === 'horizontal' ? '#4CAF50' : '#e0e0e0';
+                document.getElementById('showVerticalBtn').style.background = direction === 'vertical' ? '#4CAF50' : '#e0e0e0';
+            }
+
+            drawRollVisualization() {
+                if (!this.currentRollLayoutView || !this.vinylLayouts[this.currentRollLayoutView]) return;
+
+                const layout = this.vinylLayouts[this.currentRollLayoutView];
+                const ctx = this.rollVisualizationCtx;
+                const canvas = this.rollVisualizationCanvas;
+
+                const pxPerM = 40; // Pixels per meter on the roll canvas
+                const rollLengthM = this.vinylRollLength; // 25m
+                const rollWidthM = this.vinylWidth; // e.g., 2m
+
+                const rulerHeight = 40; // Space for top ruler
+                const piecePadding = 5; // Padding around pieces
+                const rollDisplayHeight = (layout.direction === 'horizontal' ? rollWidthM : rollLengthM) * pxPerM + rulerHeight + 2 * piecePadding; // Height for one roll's visual
+                const rollDisplayWidth = (layout.direction === 'horizontal' ? rollLengthM : rollWidthM) * pxPerM + rulerHeight; // Width for one roll's visual
+
+                let totalRollsUsed = 0;
+                let totalLengthOnRollsM = 0;
+
+                // Estimate canvas size (this is tricky without laying out first)
+                // For now, a fixed large size, or calculate based on total strip material
+                let estimatedMaxRolls = 0;
+                layout.polygonLayouts.forEach(polyLayout => {
+                    polyLayout.strips.forEach(strip => {
+                        if (layout.direction === 'horizontal') {
+                            estimatedMaxRolls += Math.ceil((strip.width / this.gridSize) / rollLengthM);
+                        } else { // vertical
+                            estimatedMaxRolls += Math.ceil((strip.height / this.gridSize) / rollLengthM);
+                        }
+                    });
+                });
+                estimatedMaxRolls = Math.max(1, estimatedMaxRolls);
+
+
+                if (layout.direction === 'horizontal') {
+                    canvas.width = rollLengthM * pxPerM + rulerHeight + 50; // Width for 25m + Y-axis ruler + padding
+                    canvas.height = (rollWidthM * pxPerM + rulerHeight + 20) * estimatedMaxRolls; // Height for N rolls stacked
+                } else { // Vertical
+                    // For vertical, we might have multiple 2m wide "columns" side-by-side if total width exceeds 2m,
+                    // each column being 25m long. This visualization will stack them.
+                    canvas.width = rollWidthM * pxPerM + rulerHeight + 50;
+                    canvas.height = (rollLengthM * pxPerM + rulerHeight + 20) * estimatedMaxRolls;
+                }
+
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.font = '12px Arial';
+
+                let currentRollNumber = 0;
+                let offsetX_onRollM = 0; // Tracks current length used on the 25m roll
+                let offsetY_canvas = 0; // Tracks Y position on canvas for stacking rolls
+
+                const drawRuler = (yPos, lengthM, pPerM, isHorizontalRuler) => {
+                    ctx.save();
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 1;
+                    ctx.fillStyle = '#333';
+                    ctx.beginPath();
+                    if (isHorizontalRuler) {
+                        ctx.moveTo(rulerHeight, yPos + rulerHeight / 2);
+                        ctx.lineTo(rulerHeight + lengthM * pPerM, yPos + rulerHeight / 2);
+                        for (let m = 0; m <= lengthM; m++) {
+                            const x = rulerHeight + m * pPerM;
+                            ctx.moveTo(x, yPos + rulerHeight/2 - (m % 5 === 0 ? 10:5) );
+                            ctx.lineTo(x, yPos + rulerHeight/2 + (m % 5 === 0 ? 10:5) );
+                            if (m % 5 === 0 || m === lengthM) ctx.fillText(m + 'm', x - (m > 9 ? 8:5), yPos + rulerHeight / 2 - 15);
+                        }
+                    } else { // Vertical Ruler (for roll width)
+                        ctx.moveTo(rulerHeight/2, yPos + rulerHeight);
+                        ctx.lineTo(rulerHeight/2, yPos + rulerHeight + lengthM * pPerM);
+                         for (let m = 0; m <= lengthM; m += 0.5) { // Marks every 0.5m for 2m width
+                            const y = yPos + rulerHeight + m * pPerM;
+                            ctx.moveTo(rulerHeight/2 - (m % 1 === 0 ? 10:5), y);
+                            ctx.lineTo(rulerHeight/2 + (m % 1 === 0 ? 10:5), y);
+                            if (m % 1 === 0 || m === lengthM) ctx.fillText(m + 'm', rulerHeight/2 - 30, y + 4);
+                        }
+                    }
+                    ctx.stroke();
+                    ctx.restore();
+                };
+
+                // Draw the first roll's boundary and ruler
+                const drawNewRollVisual = () => {
+                    totalRollsUsed++;
+                    ctx.strokeStyle = '#aaa';
+                    ctx.lineWidth = 1;
+                    if (layout.direction === 'horizontal') {
+                        ctx.strokeRect(rulerHeight, offsetY_canvas + rulerHeight, rollLengthM * pxPerM, rollWidthM * pxPerM);
+                        drawRuler(offsetY_canvas, rollLengthM, pxPerM, true); // Top ruler for length
+                        drawRuler(offsetY_canvas, rollWidthM, pxPerM, false); // Side ruler for width
+                    } else { // Vertical
+                        ctx.strokeRect(rulerHeight, offsetY_canvas + rulerHeight, rollWidthM * pxPerM, rollLengthM * pxPerM);
+                        drawRuler(offsetY_canvas, rollWidthM, pxPerM, true); // Top ruler for width
+                        drawRuler(offsetY_canvas, rollLengthM, pxPerM, false); // Side ruler for length
+                    }
+                };
+
+                drawNewRollVisual();
+
+                for (const polyLayout of layout.polygonLayouts) {
+                    const originalPolygon = this.polygons.find(p => p.id === polyLayout.polygonId);
+                    if (!originalPolygon) continue;
+
+                    for (const strip of polyLayout.strips) {
+                        let stripPrimaryDimM, stripSecondaryDimM; // Primary is laid along rollLengthM, Secondary across rollWidthM
+                        if (layout.direction === 'horizontal') {
+                            stripPrimaryDimM = strip.width / this.gridSize; // Length of the horizontal strip
+                            stripSecondaryDimM = strip.height / this.gridSize; // Width of the horizontal strip (should be vinylWidth)
+                        } else { // Vertical strip
+                            stripPrimaryDimM = strip.height / this.gridSize; // Length of the vertical strip
+                            stripSecondaryDimM = strip.width / this.gridSize; // Width of the vertical strip (should be vinylWidth)
+                        }
+
+                        let remainingStripLengthM = stripPrimaryDimM;
+                        let stripOffsetM = 0; // How much of the current strip has been laid out
+
+                        while (remainingStripLengthM > 0.01) {
+                            const spaceLeftOnRollM = rollLengthM - offsetX_onRollM;
+                            const lengthToDrawM = Math.min(remainingStripLengthM, spaceLeftOnRollM);
+
+                            if (lengthToDrawM < 0.01 && spaceLeftOnRollM < 0.01) { // No space on current roll, start new one
+                                offsetY_canvas += (layout.direction === 'horizontal' ? rollWidthM : rollLengthM) * pxPerM + rulerHeight + 20;
+                                offsetX_onRollM = 0;
+                                drawNewRollVisual();
+                                // Recalculate after new roll
+                                const newSpaceLeft = rollLengthM - offsetX_onRollM;
+                                const newLengthToDraw = Math.min(remainingStripLengthM, newSpaceLeft);
+                                if (newLengthToDraw < 0.01) { console.warn("Strip too small or no space"); break;} // Safety break
+                                totalLengthOnRollsM += offsetX_onRollM; // Add previous roll's length
+                                offsetX_onRollM = 0; // Reset for new roll
+                                continue; // Re-evaluate with new roll
+                            } else if (lengthToDrawM < 0.01) { // Not enough space for meaningful draw, but roll has space
+                                 // This case implies the remaining strip is tiny, just finish it or ignore
+                                 break;
+                            }
+
+
+                            // --- Draw this piece of the strip ---
+                            ctx.save();
+                            // Position the piece on the roll canvas
+                            // All pieces of a horizontal strip are at y=0 of that roll's drawing area.
+                            // All pieces of a vertical strip are at x=0 of that roll's drawing area (assuming one strip per column for now).
+                            const pieceX_px = rulerHeight + (layout.direction === 'horizontal' ? offsetX_onRollM * pxPerM : 0);
+                            const pieceY_px = offsetY_canvas + rulerHeight + (layout.direction === 'horizontal' ? 0 : offsetX_onRollM * pxPerM);
+
+                            const pieceWidthPx = (layout.direction === 'horizontal' ? lengthToDrawM : stripSecondaryDimM) * pxPerM;
+                            const pieceHeightPx = (layout.direction === 'horizontal' ? stripSecondaryDimM : lengthToDrawM) * pxPerM;
+
+                            ctx.translate(pieceX_px, pieceY_px);
+
+                            // Draw piece boundary (optional, for debugging)
+                            ctx.strokeStyle = "rgba(0,0,255,0.3)"; ctx.lineWidth = 1;
+                            ctx.strokeRect(0,0, pieceWidthPx, pieceHeightPx);
+
+                            // Clip to this piece's dimensions on the roll canvas
+                            ctx.beginPath();
+                            ctx.rect(0, 0, pieceWidthPx, pieceHeightPx);
+                            ctx.clip();
+
+                            // --- Transform to draw the polygon correctly within this clipped piece ---
+                            ctx.save();
+                            const scaleFactor = pxPerM / this.gridSize; // from original canvas scale to roll canvas meter scale
+                            ctx.scale(scaleFactor, scaleFactor); // Now 1 unit = 1 original canvas pixel (gridSize unit)
+
+                            // Translate so that the correct part of the polygon aligns with this piece
+                            // strip.x, strip.y are original canvas pixel coords of the strip's top-left
+                            // stripOffsetM is how far into the *current strip* we are (in meters)
+                            let polyTranslateX = -strip.x;
+                            let polyTranslateY = -strip.y;
+
+                            if (layout.direction === 'horizontal') {
+                                polyTranslateX -= (stripOffsetM * this.gridSize);
+                            } else { // vertical
+                                polyTranslateY -= (stripOffsetM * this.gridSize);
+                            }
+                            ctx.translate(polyTranslateX, polyTranslateY);
+
+                            // Draw polygon fill
+                            ctx.beginPath();
+                            originalPolygon.points.forEach((pt, i) => {
+                                if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+                            });
+                            ctx.closePath();
+                            // Use a unique color per polygon for clarity
+                            const polyColorIndex = this.polygons.findIndex(p => p.id === originalPolygon.id);
+                            ctx.fillStyle = `hsla(${(polyColorIndex * 60) % 360}, 70%, 70%, 0.6)`;
+                            ctx.fill();
+                            ctx.strokeStyle = `hsl(${(polyColorIndex * 60) % 360}, 70%, 40%)`;
+                            ctx.lineWidth = 2 / scaleFactor; // Maintain 2px visual line width
+                            ctx.stroke();
+
+                            // --- Draw edge labels for VISIBLE parts ---
+                            ctx.font = `${12 / scaleFactor}px Arial`; // Approx 12px font visually
+                            ctx.fillStyle = '#222';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+
+                            // Define the clipping rectangle for the current piece, IN ORIGINAL POLYGON COORDINATES (gridSize units)
+                            let clipRectOriginalCoords;
+                            if (layout.direction === 'horizontal') {
+                                clipRectOriginalCoords = {
+                                    x: strip.x + (stripOffsetM * this.gridSize),
+                                    y: strip.y,
+                                    width: lengthToDrawM * this.gridSize,
+                                    height: strip.height // strip.height is already in gridSize units
+                                };
+                            } else { // vertical
+                                clipRectOriginalCoords = {
+                                    x: strip.x,
+                                    y: strip.y + (stripOffsetM * this.gridSize),
+                                    width: strip.width, // strip.width is already in gridSize units
+                                    height: lengthToDrawM * this.gridSize
+                                };
+                            }
+
+                            for (let i = 0; i < originalPolygon.points.length; i++) {
+                                const p1_orig = originalPolygon.points[i]; // {x, y} in gridSize units
+                                const p2_orig = originalPolygon.points[(i + 1) % originalPolygon.points.length];
+
+                                const visibleSegment = this.clipLineSegmentWithRect(p1_orig, p2_orig, clipRectOriginalCoords);
+
+                                if (visibleSegment) {
+                                    const { p1_clip, p2_clip } = visibleSegment; // These points are in gridSize units
+                                    const mx = (p1_clip.x + p2_clip.x) / 2;
+                                    const my = (p1_clip.y + p2_clip.y) / 2;
+
+                                    const len_pixels = Math.sqrt(Math.pow(p2_clip.x - p1_clip.x, 2) + Math.pow(p2_clip.y - p1_clip.y, 2));
+                                    const len_m_actual = len_pixels / this.gridSize;
+
+                                    if (len_m_actual < 0.01) continue; // Don't label tiny segments
+
+                                    const ang_rad = Math.atan2(p2_clip.y - p1_clip.y, p2_clip.x - p1_clip.x);
+                                    const ang_deg = ang_rad * 180 / Math.PI;
+
+                                    ctx.save();
+                                    ctx.translate(mx, my); // Translate to midpoint (in gridSize units)
+                                    ctx.rotate(ang_rad);
+                                    ctx.fillText(`${len_m_actual.toFixed(2)}m, ${ang_deg.toFixed(1)}°`, 0, -2 / scaleFactor);
+                                    ctx.restore();
+                                }
+                            }
+                            ctx.restore(); // Polygon transforms
+                            ctx.restore(); // Piece positioning and clipping
+
+                            // Update positions for next iteration
+                            offsetX_onRollM += lengthToDrawM;
+                            stripOffsetM += lengthToDrawM;
+                            remainingStripLengthM -= lengthToDrawM;
+
+                            if (offsetX_onRollM >= rollLengthM - 0.01) { // Current 25m roll is full
+                                totalLengthOnRollsM += rollLengthM;
+                                offsetY_canvas += (layout.direction === 'horizontal' ? rollWidthM : rollLengthM) * pxPerM + rulerHeight + 20; // Spacing for next roll
+                                offsetX_onRollM = 0;
+                                if (remainingStripLengthM > 0.01) { // If strip continues
+                                   drawNewRollVisual();
+                                }
+                            }
+                        } // End while loop for current strip
+                    } // End for loop for strips in polygon
+                } // End for loop for polygons
+                if (offsetX_onRollM > 0) totalLengthOnRollsM += offsetX_onRollM; // Add length used on the last roll
+
+                // Update summary
+                const summaryContainer = document.getElementById('rollSummaryContainer');
+                summaryContainer.innerHTML = `
+                    <h4>Roll Layout Summary (${layout.direction.toUpperCase()})</h4>
+                    <div><strong>Total Rolls Used (estimated):</strong> ${totalRollsUsed}</div>
+                    <div><strong>Total Material on Rolls:</strong> ${totalLengthOnRollsM.toFixed(2)} linear meters (approx.)</div>
+                    <div><strong>Vinyl Width:</strong> ${this.vinylWidth} m</div>
+                    <div><small>Note: "Total Rolls Used" is the number of 25m segments started. Actual material used depends on cuts.</small></div>
+                `;
+            }
+
+            updateSnapPoints() {
+                this.snapPoints = [];
+                this.objects.forEach(obj => {
+                    this.snapPoints.push({ x: obj.startX, y: obj.startY });
+                    this.snapPoints.push({ x: obj.endX, y: obj.endY });
+                });
+                this.polygons.forEach(poly => poly.points.forEach(p => this.snapPoints.push(p)));
+                if (this.showGrid) {
+                    for (let x = 0; x <= this.canvas.width; x += this.gridSize) {
+                        for (let y = 0; y <= this.canvas.height; y += this.gridSize) {
+                            this.snapPoints.push({ x, y });
+                        }
+                    }
+                }
+            }
+
+            updatePolygonsList() {
+                const listDiv = document.getElementById('polygonsList');
+                const itemsDiv = document.getElementById('polygonItems');
+                if (this.polygons.length === 0) {
+                    listDiv.style.display = 'none';
+                    return;
+                }
+                listDiv.style.display = 'block';
+                itemsDiv.innerHTML = '';
+                this.polygons.forEach((polygon, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'polygon-item';
+                    const perimeter = this.calculatePolygonPerimeter(polygon.points);
+                    const color = `hsl(${(index * 60) % 360}, 70%, 50%)`;
+                    item.innerHTML = `
+                        <span style="display:inline-block;width:16px;height:16px;border-radius:3px;background:${color};margin-right:8px;vertical-align:middle;"></span>
+                        <strong>Polygon ${index + 1}</strong> (ID: ...${polygon.id.slice(-4)})<br>
+                        Area: ${polygon.area.toFixed(2)} m² | Perimeter: ${perimeter.toFixed(2)} m | Points: ${polygon.points.length}`;
+                    if (this.selectedObject && this.selectedObject.id === polygon.id) {
+                        item.style.border = '2px solid #e74c3c'; item.style.background = '#ffeaea';
+                    }
+                    item.onclick = () => this.selectObjectAt(polygon.points[0].x + 1, polygon.points[0].y + 1); // Click near a point
+                    itemsDiv.appendChild(item);
+                });
+            }
+
+            snapToGrid(point) {
+                if (this.showGrid) {
+                    return {
+                        x: Math.round(point.x / this.gridSize) * this.gridSize,
+                        y: Math.round(point.y / this.gridSize) * this.gridSize
+                    };
+                }
+                return point;
+            }
+
+            isPointNearLine(px, py, x1, y1, x2, y2, tolerance) {
+                const lenSq = Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2);
+                if (lenSq === 0) return Math.sqrt(Math.pow(px - x1, 2) + Math.pow(py - y1, 2)) <= tolerance;
+                let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / lenSq;
+                t = Math.max(0, Math.min(1, t));
+                const projX = x1 + t * (x2 - x1);
+                const projY = y1 + t * (y2 - y1);
+                return Math.sqrt(Math.pow(px - projX, 2) + Math.pow(py - projY, 2)) <= tolerance;
+            }
+
+            calculateDistance(x1, y1, x2, y2) { // Returns distance in pixels (gridSize units)
+                return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+            }
+
+            calculateAngle(x1, y1, x2, y2) { // Returns angle in degrees
+                return Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+            }
+
+            calculatePolygonArea(points) { // Area in m²
+                if (!points || points.length < 3) return 0;
+                let areaPixels = 0;
+                for (let i = 0; i < points.length; i++) {
+                    const j = (i + 1) % points.length;
+                    areaPixels += (points[i].x * points[j].y) - (points[j].x * points[i].y);
+                }
+                return Math.abs(areaPixels / 2) / (this.gridSize * this.gridSize);
+            }
+
+            calculatePolygonPerimeter(points) { // Perimeter in meters
+                if (!points || points.length < 2) return 0;
+                let perimeterPixels = 0;
+                for (let i = 0; i < points.length; i++) {
+                    perimeterPixels += this.calculateDistance(points[i].x, points[i].y, points[(i + 1) % points.length].x, points[(i + 1) % points.length].y);
+                }
+                return perimeterPixels / this.gridSize;
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                if (this.showGrid) this.drawGrid();
+                this.drawObjects();
+                this.drawPolygons();
+                // Removed vinyl strip overlay from main canvas for clarity, use dedicated roll viz
+                if (this.isDrawing && this.startPoint && this.endPoint) this.drawPreview();
+            }
+
+            drawGrid() {
+                this.ctx.strokeStyle = '#e0e0e0';
+                this.ctx.lineWidth = 0.5;
+                for (let x = 0; x <= this.canvas.width; x += this.gridSize) {
+                    this.ctx.beginPath(); this.ctx.moveTo(x, 0); this.ctx.lineTo(x, this.canvas.height); this.ctx.stroke();
+                }
+                for (let y = 0; y <= this.canvas.height; y += this.gridSize) {
+                    this.ctx.beginPath(); this.ctx.moveTo(0, y); this.ctx.lineTo(this.canvas.width, y); this.ctx.stroke();
+                }
+            }
+
+            drawObjects() {
+                this.objects.forEach(obj => this.drawObject(obj, this.selectedObject && this.selectedObject.id === obj.id));
+            }
+
+            drawPolygons() {
+                this.polygons.forEach((polygon, index) => this.drawPolygon(polygon, index, this.selectedObject && this.selectedObject.id === polygon.id));
+            }
+
+            drawPolygon(polygon, index, isSelected = false) {
+                const points = polygon.points;
+                if (points.length < 3) return;
+
+                const polyColorIndex = this.polygons.findIndex(p => p.id === polygon.id); // Consistent color
+                this.ctx.fillStyle = isSelected ? 'rgba(231, 76, 60, 0.4)' : `hsla(${(polyColorIndex * 60) % 360}, 70%, 70%, 0.4)`;
+                this.ctx.strokeStyle = isSelected ? '#e74c3c' : `hsl(${(polyColorIndex * 60) % 360}, 70%, 50%)`;
+                this.ctx.lineWidth = isSelected ? 4 : 3;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length; i++) this.ctx.lineTo(points[i].x, points[i].y);
+                this.ctx.closePath();
+                this.ctx.fill(); this.ctx.stroke();
+
+                // Draw vertices
+                this.ctx.fillStyle = isSelected ? '#c0392b' : this.ctx.strokeStyle;
+                points.forEach(p => { this.ctx.beginPath(); this.ctx.arc(p.x, p.y, isSelected ? 5:4, 0, 2 * Math.PI); this.ctx.fill(); });
+
+                // Label
+                const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+                const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+                this.ctx.font = 'bold 13px Arial';
+                const text = `P${polyColorIndex + 1}: ${polygon.area.toFixed(2)}m²`;
+                const textWidth = this.ctx.measureText(text).width;
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                this.ctx.fillRect(centerX - textWidth/2 - 4, centerY - 10, textWidth + 8, 20);
+                this.ctx.fillStyle = isSelected ? '#c0392b' : '#2c3e50';
+                this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(text, centerX, centerY);
+            }
+
+            drawObject(obj, isSelected = false) {
+                const distM = this.calculateDistance(obj.startX, obj.startY, obj.endX, obj.endY) / this.gridSize;
+                const angleDeg = this.calculateAngle(obj.startX, obj.startY, obj.endX, obj.endY);
+                const thicknessPx = this.wallThickness * this.gridSize;
+
+                this.ctx.lineCap = 'round';
+                if (obj.type === 'wall') {
+                    this.ctx.strokeStyle = isSelected ? '#e74c3c' : '#2c3e50';
+                    this.ctx.lineWidth = isSelected ? Math.max(thicknessPx, 4) : Math.max(thicknessPx, 3);
+                } else if (obj.type === 'door') {
+                    this.ctx.strokeStyle = isSelected ? '#e74c3c' : '#f39c12';
+                    this.ctx.lineWidth = isSelected ? 4 : 3;
+                } else if (obj.type === 'window') {
+                    this.ctx.strokeStyle = isSelected ? '#e74c3c' : '#3498db';
+                    this.ctx.lineWidth = isSelected ? 7 : 6; // Thicker for windows
+                }
+                this.ctx.beginPath(); this.ctx.moveTo(obj.startX, obj.startY); this.ctx.lineTo(obj.endX, obj.endY); this.ctx.stroke();
+
+                // Label
+                const midX = (obj.startX + obj.endX) / 2; const midY = (obj.startY + obj.endY) / 2;
+                this.ctx.font = '11px Arial';
+                const text = `${distM.toFixed(2)}m, ${angleDeg.toFixed(1)}°`;
+                const textWidth = this.ctx.measureText(text).width;
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                this.ctx.fillRect(midX - textWidth/2 - 2, midY - 9, textWidth + 4, 18);
+                this.ctx.fillStyle = isSelected ? '#c0392b' : (obj.type === 'wall' ? '#555' : this.ctx.strokeStyle);
+                this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(text, midX, midY);
+            }
+
+            drawPreview() {
+                this.ctx.strokeStyle = '#7f8c8d';
+                this.ctx.lineWidth = 2;
+                this.ctx.setLineDash([6, 6]);
+                this.ctx.beginPath(); this.ctx.moveTo(this.startPoint.x, this.startPoint.y); this.ctx.lineTo(this.endPoint.x, this.endPoint.y); this.ctx.stroke();
+                this.ctx.setLineDash([]);
+
+                const distM = this.calculateDistance(this.startPoint.x, this.startPoint.y, this.endPoint.x, this.endPoint.y) / this.gridSize;
+                const angleDeg = this.calculateAngle(this.startPoint.x, this.startPoint.y, this.endPoint.x, this.endPoint.y);
+                const midX = (this.startPoint.x + this.endPoint.x) / 2; const midY = (this.startPoint.y + this.endPoint.y) / 2;
+
+                this.ctx.font = 'bold 12px Arial';
+                const text = `${distM.toFixed(2)}m, ${angleDeg.toFixed(1)}°`;
+                const textWidth = this.ctx.measureText(text).width;
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                this.ctx.fillRect(midX - textWidth/2 - 5, midY - 11, textWidth + 10, 22);
+                this.ctx.fillStyle = '#2c3e50';
+                this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(text, midX, midY);
+            }
+
+            updateMeasurements() {
+                let totalAreaM2 = this.polygons.reduce((sum, p) => sum + p.area, 0);
+                let totalPerimeterM = this.polygons.reduce((sum, p) => sum + this.calculatePolygonPerimeter(p.points), 0);
+                document.getElementById('totalArea').textContent = `${totalAreaM2.toFixed(2)} m²`;
+                document.getElementById('perimeter').textContent = `${totalPerimeterM.toFixed(2)} m`;
+                document.getElementById('wallCount').textContent = this.objects.filter(o => o.type === 'wall').length;
+                document.getElementById('polygonCount').textContent = this.polygons.length;
+            }
+
+            toggleGrid() {
+                this.showGrid = !this.showGrid;
+                this.updateSnapPoints(); this.draw();
+            }
+
+            updateGridSize(e) {
+                this.gridSize = parseInt(e.target.value) || 100;
+                this.updateScaleInfo();
+                this.updateSnapPoints(); this.draw(); this.updateMeasurements();
+                // Recalculate vinyl if already calculated, as pixel dimensions change
+                if (this.vinylLayouts.horizontal || this.vinylLayouts.vertical) this.calculateVinyl();
+            }
+
+            updateScaleInfo() {
+                document.getElementById('scaleText').textContent = `${this.gridSize}px = 1 metre`;
+            }
+
+            updateVinylWidth(e) {
+                this.vinylWidth = parseFloat(e.target.value) || 2.0;
+                if (this.vinylLayouts.horizontal || this.vinylLayouts.vertical) this.calculateVinyl();
+            }
+
+            onKeyDown(e) {
+                if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+                const key = e.key.toLowerCase();
+                console.log('Key pressed:', key);
+                if (key === 'w') this.setTool('wall');
+                else if (key === 'd') {
+                    console.log('D key pressed, calling global function directly');
+                    showDoorModalDirect();
+                }
+                else if (key === 'i') this.setTool('window');
+                else if (key === 's') this.setTool('select');
+                else if (key === 'g') this.toggleGrid();
+                else if (key === 'delete' || key === 'backspace') this.deleteSelected();
+                else if (key === 'escape') { this.isDrawing = false; this.selectedObject = null; this.draw(); }
+                // Add more shortcuts as needed
+            }
+
+            save() {
+                const data = {
+                    objects: this.objects, polygons: this.polygons,
+                    gridSize: this.gridSize, vinylWidth: this.vinylWidth,
+                    doorConfig: this.doorConfig,
+                    timestamp: new Date().toISOString()
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `floorplan-${new Date().toISOString().slice(0,10)}.json`;
+                a.click(); URL.revokeObjectURL(a.href);
+            }
+
+            load() {
+                const input = document.createElement('input');
+                input.type = 'file'; input.accept = '.json';
+                input.onchange = e => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = re => {
+                        try {
+                            const data = JSON.parse(re.target.result);
+                            this.objects = data.objects || [];
+                            this.polygons = data.polygons || []; // Ensure polygons have area if loaded
+                            this.polygons.forEach(p => { if (p.area === undefined) p.area = this.calculatePolygonArea(p.points); });
+                            this.gridSize = data.gridSize || 100;
+                            this.vinylWidth = data.vinylWidth || 2.0;
+                            this.doorConfig = data.doorConfig || this.doorConfig;
+                            document.getElementById('gridSize').value = this.gridSize;
+                            document.getElementById('vinylWidth').value = this.vinylWidth;
+                            this.selectedObject = null; this.isDrawing = false;
+                            this.vinylLayouts = { horizontal: null, vertical: null }; this.currentVinylView = null; this.currentRollLayoutView = null;
+                            document.getElementById('rollLayout').style.display = 'none';
+
+                            this.updateScaleInfo(); this.updateSnapPoints(); this.updatePolygonsList();
+                            this.draw(); this.updateMeasurements();
+                            console.log('Floor plan loaded.');
+                        } catch (err) { console.error('Error loading file:', err); }
+                    };
+                    reader.readAsText(file);
+                };
+                input.click();
+            }
+        }
+
+        // Global functions for modal
+        function showDoorModalDirect() {
+            console.log('showDoorModalDirect called');
+            const modal = document.getElementById('doorModal');
+            console.log('Modal found:', modal);
+            modal.style.display = 'block';
+            modal.style.position = 'fixed';
+            modal.style.zIndex = '9999';
+            
+            // Set default values
+            document.getElementById('doorName').value = '';
+            document.getElementById('doorStyle').value = 'Common';
+            document.getElementById('doorWidth').value = '0.90';
+            document.getElementById('doorHeight').value = '2.10';
+            document.getElementById('doorOpenIn').checked = true;
+            document.getElementById('doorOpenOut').checked = false;
+            document.getElementById('doorIgnoreArea').checked = false;
+            document.getElementById('doorTransition').value = '';
+            document.getElementById('showDoorWindow').checked = true;
+        }
+
+        function closeDoorModal() {
+            const modal = document.getElementById('doorModal');
+            modal.style.display = 'none';
+            // Reset tool to select if modal was cancelled
+            if (window.floorPlanner && window.floorPlanner.currentTool === 'door') {
+                window.floorPlanner.setTool('select');
+            }
+        }
+
+        function confirmDoorSettings() {
+            if (window.floorPlanner) {
+                window.floorPlanner.doorConfig = {
+                    name: document.getElementById('doorName').value,
+                    style: document.getElementById('doorStyle').value,
+                    width: parseFloat(document.getElementById('doorWidth').value) || 0.90,
+                    height: parseFloat(document.getElementById('doorHeight').value) || 2.10,
+                    openIn: document.getElementById('doorOpenIn').checked,
+                    openOut: document.getElementById('doorOpenOut').checked,
+                    ignoreArea: document.getElementById('doorIgnoreArea').checked,
+                    transition: document.getElementById('doorTransition').value,
+                    showWindow: document.getElementById('showDoorWindow').checked
+                };
+                closeDoorModal();
+            }
+        }
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('doorModal');
+            if (event.target == modal) {
+                closeDoorModal();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.floorPlanner = new EnhancedFloorPlanner();
+        });
+    </script>
+</body>
+</html>
