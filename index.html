@@ -142,12 +142,13 @@
                     <input type="text" id="doorName" class="form-input" style="width: 120px;">
                     <span class="form-label" style="margin-left: 20px;">Style</span>
                     <select id="doorStyle" class="form-select" style="width: 120px;">
-                        <option value="Common">Common</option>
-                        <option value="NoLeaf">NoLeaf</option>
-                        <option value="French">French</option>
-                        <option value="Sliding">Sliding</option>
-                        <option value="Folding">Folding</option>
-                        <option value="DoubleFolding">DoubleFolding</option>
+                        <option value="door">Common</option>
+                        <option value="doubledoor">Double Door</option>
+                        <option value="doublefolding">Double Folding</option>
+                        <option value="foldingdoor">Folding Door</option>
+                        <option value="frenchdoors">French Doors</option>
+                        <option value="pocketdoor">Pocket Door</option>
+                        <option value="slidingdoor">Sliding Door</option>
                     </select>
                 </div>
                 <div class="form-row">
@@ -229,7 +230,7 @@
                 // Door configuration
                 this.doorConfig = {
                     name: '',
-                    style: 'Common',
+                    style: 'door',
                     width: 0.90,
                     height: 2.10,
                     doorMeasurement: 0.35,
@@ -1399,7 +1400,7 @@
             
             // Set default values
             document.getElementById('doorName').value = '';
-            document.getElementById('doorStyle').value = 'Common';
+            document.getElementById('doorStyle').value = 'door';
             document.getElementById('doorWidth').value = '0.90';
             document.getElementById('doorHeight').value = '2.10';
             document.getElementById('doorMeasurement').value = '0.35';
