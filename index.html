@@ -158,6 +158,11 @@
                     <input type="number" id="doorHeight" class="form-input" value="2.10" step="0.01">
                     <span style="margin-left: 3px;">M</span>
                 </div>
+                <div class="form-row">
+                    <span class="form-label">+ vinyl</span>
+                    <input type="number" id="doorMeasurement" class="form-input" value="0.35" step="0.01">
+                    <span style="margin-left: 3px;">M</span>
+                </div>
                 <div class="checkbox-row">
                     <label><input type="checkbox" id="doorOpenIn" checked> Open In</label>
                     <label><input type="checkbox" id="doorOpenOut"> Open Out</label>
@@ -170,10 +175,10 @@
                     <input type="checkbox" id="doorStrip">
                     <span class="form-label" style="margin-left: 20px;">Door Strip</span>
                     <select id="doorStripType" class="form-select" style="width: 120px;">
-                        <option value="Option 1">Option 1</option>
+                        <option value="Option 1" selected>Option 1</option>
                         <option value="Option 2">Option 2</option>
                         <option value="Option 3">Option 3</option>
-                        <option value="Option 4" selected>Option 4</option>
+                        <option value="Option 4">Option 4</option>
                     </select>
                 </div>
                 <div class="form-row">
@@ -227,13 +232,14 @@
                     style: 'Common',
                     width: 0.90,
                     height: 2.10,
+                    doorMeasurement: 0.35,
                     openIn: true,
                     openOut: false,
                     ignoreArea: false,
                     transition: '',
                     showWindow: true,
                     strip: false,
-                    stripType: 'Option 4'
+                    stripType: 'Option 1'
                 };
 
                 this.init();
@@ -384,6 +390,7 @@
                 document.getElementById('doorStyle').value = this.doorConfig.style;
                 document.getElementById('doorWidth').value = this.doorConfig.width;
                 document.getElementById('doorHeight').value = this.doorConfig.height;
+                document.getElementById('doorMeasurement').value = this.doorConfig.doorMeasurement;
                 document.getElementById('doorOpenIn').checked = this.doorConfig.openIn;
                 document.getElementById('doorOpenOut').checked = this.doorConfig.openOut;
                 document.getElementById('doorIgnoreArea').checked = this.doorConfig.ignoreArea;
@@ -1395,13 +1402,14 @@
             document.getElementById('doorStyle').value = 'Common';
             document.getElementById('doorWidth').value = '0.90';
             document.getElementById('doorHeight').value = '2.10';
+            document.getElementById('doorMeasurement').value = '0.35';
             document.getElementById('doorOpenIn').checked = true;
             document.getElementById('doorOpenOut').checked = false;
             document.getElementById('doorIgnoreArea').checked = false;
             document.getElementById('doorTransition').value = '';
             document.getElementById('showDoorWindow').checked = true;
             document.getElementById('doorStrip').checked = false;
-            document.getElementById('doorStripType').value = 'Option 4';
+            document.getElementById('doorStripType').value = 'Option 1';
         }
 
         function closeDoorModal() {
@@ -1420,6 +1428,7 @@
                     style: document.getElementById('doorStyle').value,
                     width: parseFloat(document.getElementById('doorWidth').value) || 0.90,
                     height: parseFloat(document.getElementById('doorHeight').value) || 2.10,
+                    doorMeasurement: parseFloat(document.getElementById('doorMeasurement').value) || 0.35,
                     openIn: document.getElementById('doorOpenIn').checked,
                     openOut: document.getElementById('doorOpenOut').checked,
                     ignoreArea: document.getElementById('doorIgnoreArea').checked,
