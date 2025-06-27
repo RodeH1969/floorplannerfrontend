@@ -160,16 +160,13 @@
                     <span style="margin-left: 3px;">M</span>
                 </div>
                 <div class="form-row">
-                    <span class="form-label">+ vinyl</span>
+                    <span class="form-label">+ doorway allowance</span>
                     <input type="number" id="doorMeasurement" class="form-input" value="0.35" step="0.01">
                     <span style="margin-left: 3px;">M</span>
                 </div>
                 <div class="checkbox-row">
                     <label><input type="checkbox" id="doorOpenIn" checked> Open In</label>
                     <label><input type="checkbox" id="doorOpenOut"> Open Out</label>
-                </div>
-                <div class="checkbox-row">
-                    <label><input type="checkbox" id="doorIgnoreArea"> Ignore Door Area</label>
                 </div>
                 <div class="form-row">
                     <span class="form-label">Strip</span>
@@ -236,7 +233,6 @@
                     doorMeasurement: 0.35,
                     openIn: true,
                     openOut: false,
-                    ignoreArea: false,
                     transition: '',
                     showWindow: true,
                     strip: false,
@@ -394,7 +390,6 @@
                 document.getElementById('doorMeasurement').value = this.doorConfig.doorMeasurement;
                 document.getElementById('doorOpenIn').checked = this.doorConfig.openIn;
                 document.getElementById('doorOpenOut').checked = this.doorConfig.openOut;
-                document.getElementById('doorIgnoreArea').checked = this.doorConfig.ignoreArea;
                 document.getElementById('doorTransition').value = this.doorConfig.transition;
                 document.getElementById('showDoorWindow').checked = this.doorConfig.showWindow;
                 document.getElementById('doorStrip').checked = this.doorConfig.strip;
@@ -1406,7 +1401,6 @@
             document.getElementById('doorMeasurement').value = '0.35';
             document.getElementById('doorOpenIn').checked = true;
             document.getElementById('doorOpenOut').checked = false;
-            document.getElementById('doorIgnoreArea').checked = false;
             document.getElementById('doorTransition').value = '';
             document.getElementById('showDoorWindow').checked = true;
             document.getElementById('doorStrip').checked = false;
@@ -1432,7 +1426,6 @@
                     doorMeasurement: parseFloat(document.getElementById('doorMeasurement').value) || 0.35,
                     openIn: document.getElementById('doorOpenIn').checked,
                     openOut: document.getElementById('doorOpenOut').checked,
-                    ignoreArea: document.getElementById('doorIgnoreArea').checked,
                     transition: document.getElementById('doorTransition').value,
                     showWindow: document.getElementById('showDoorWindow').checked,
                     strip: document.getElementById('doorStrip').checked,
